@@ -9,13 +9,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Allow CORS for frontend domain
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)  # Temporarily allow all origins
+# Allow CORS for your frontend domain
+CORS(app, resources={r"/*": {"origins": "https://irci-chatbot.vercel.app"}}, supports_credentials=True)
 
 # Load API key securely
 api_key = os.getenv("AI_SECRET")
 if not api_key:
-    raise ValueError("API key not found. Set the GOOGLE_GENAI_API_KEY environment variable.")
+    raise ValueError("API key not found. Set it in Vercel environment variables.")
 
 genai.configure(api_key=api_key)
 
@@ -46,6 +46,14 @@ def generate_response(user_message):
 def home():
     return jsonify({"message": "Flask chatbot is running!"}), 200
 
+@app.route('/chat', methods=['OPTIONS'])  # ✅ Handle preflight requests properly
+def chat_options():
+    response = jsonify({'message': 'CORS preflight success'})
+    response.headers.add("Access-Control-Allow-Origin", "https://irci-chatbot.vercel.app")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+    return response, 200
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try: 
@@ -58,7 +66,7 @@ def chat():
         bot_response = generate_response(user_message)
 
         response = jsonify({'response': bot_response})
-        response.headers.add("Access-Control-Allow-Origin", "*")  # Allow all origins
+        response.headers.add("Access-Control-Allow-Origin", "https://irci-chatbot.vercel.app")  # ✅ Ensure response allows CORS
         response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
         response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
 
@@ -66,15 +74,6 @@ def chat():
 
     except Exception as e:
         return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
-
-# Handle CORS preflight requests
-@app.route('/chat', methods=['OPTIONS'])
-def chat_options():
-    response = jsonify({'message': 'CORS preflight success'})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-    return response, 200
 
 # Needed for Vercel
 def handler(event, context):
