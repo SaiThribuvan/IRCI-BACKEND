@@ -9,8 +9,8 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Allow CORS for your frontend domain
-CORS(app, resources={r"/*": {"origins": "https://irci-chatbot.vercel.app"}}, supports_credentials=True)
+# Full unrestricted CORS (for debugging, restrict later)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Load API key securely
 api_key = os.getenv("AI_SECRET")
@@ -42,17 +42,22 @@ def generate_response(user_message):
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
+@app.after_request
+def add_cors_headers(response):
+    """✅ Ensure CORS headers are present on **ALL** responses."""
+    response.headers.add("Access-Control-Allow-Origin", "*")  # Allow all origins
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response
+
 @app.route("/", methods=['GET'])
 def home():
     return jsonify({"message": "Flask chatbot is running!"}), 200
 
-@app.route('/chat', methods=['OPTIONS'])  # ✅ Handle preflight requests properly
+@app.route('/chat', methods=['OPTIONS'])  # ✅ Handle preflight requests explicitly
 def chat_options():
-    response = jsonify({'message': 'CORS preflight success'})
-    response.headers.add("Access-Control-Allow-Origin", "https://irci-chatbot.vercel.app")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-    return response, 200
+    return add_cors_headers(jsonify({'message': 'CORS preflight success'})), 200
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -64,13 +69,7 @@ def chat():
             return jsonify({'error': 'No message provided'}), 400
 
         bot_response = generate_response(user_message)
-
-        response = jsonify({'response': bot_response})
-        response.headers.add("Access-Control-Allow-Origin", "https://irci-chatbot.vercel.app")  # ✅ Ensure response allows CORS
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-
-        return response, 200
+        return add_cors_headers(jsonify({'response': bot_response}))
 
     except Exception as e:
         return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
