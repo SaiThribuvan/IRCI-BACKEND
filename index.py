@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Load API key securely
-api_key = os.getenv("GOOGLE_GENAI_API_KEY")
+api_key = os.getenv("AI_SECRET")
 if not api_key:
     raise ValueError("API key not found. Set the GOOGLE_GENAI_API_KEY environment variable.")
 
