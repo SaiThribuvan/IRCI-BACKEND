@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://irci-chatbot.vercel.app"}})
+
+# Allow CORS for frontend domain
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)  # Temporarily allow all origins
 
 # Load API key securely
 api_key = os.getenv("AI_SECRET")
@@ -32,45 +34,48 @@ model = genai.GenerativeModel(
     generation_config=generation_config,
 )
 
-# Initial conversation context (can be modified)
-initial_context = ""
-
 def generate_response(user_message):
     try:
-        combined_message = f"{initial_context}\nUser: {user_message}\n{BOT_NAME}:" if initial_context else f"User: {user_message}\n{BOT_NAME}:"
-        
+        combined_message = f"User: {user_message}\n{BOT_NAME}:"
         result = model.generate_content([combined_message])
-        
-        if hasattr(result, "text"):
-            return result.text.strip()  # Correct extraction of response
-        else:
-            return "No response from the model."
+        return result.text.strip() if hasattr(result, "text") else "No response from the model."
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
-# Home route
 @app.route("/", methods=['GET'])
 def home():
     return jsonify({"message": "Flask chatbot is running!"}), 200
 
-# Chatbot route
 @app.route('/chat', methods=['POST'])
 def chat():
     try: 
         data = request.get_json()
-
-        # Ensure message is provided
         user_message = data.get('message')
+
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
 
-        # Generate bot response
         bot_response = generate_response(user_message)
-        return jsonify({'response': bot_response}), 200
+
+        response = jsonify({'response': bot_response})
+        response.headers.add("Access-Control-Allow-Origin", "*")  # Allow all origins
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+
+        return response, 200
 
     except Exception as e:
         return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
 
-# This is needed for Vercel
+# Handle CORS preflight requests
+@app.route('/chat', methods=['OPTIONS'])
+def chat_options():
+    response = jsonify({'message': 'CORS preflight success'})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+    return response, 200
+
+# Needed for Vercel
 def handler(event, context):
     return app(event, context)
