@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "https://irci-chatbot.vercel.app"}})
 
 # Load API key securely
 api_key = os.getenv("AI_SECRET")
